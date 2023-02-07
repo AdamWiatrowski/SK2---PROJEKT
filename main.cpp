@@ -113,13 +113,13 @@ int guessWord(string word) {
     vector<int> result = compareStrings(guess, word);
     ColorPrint(result, guess);
     if (win == result) {
-      cout << "Gratulacje, zgadˆe˜ sˆowo w " << tries << " probach!" << endl;
+      cout << "Gratulacje, zgadË†eËœ sË†owo w " << tries << " probach!" << endl;
       return tries;
     }
     tries++;
   }
   if (tries == 5) {
-    cout << "Niestety, nie zgadˆe˜ sˆowa po 5 pr¢bach." << endl;
+    cout << "Niestety, nie zgadË†eËœ sË†owa po 5 prÂ¢bach." << endl;
     return tries;
   }
 }
@@ -155,7 +155,7 @@ int printMenu(){
 }
 
 void menu(){
-    int choice = PrintMenu();
+    int choice = printMenu();
     switch (choice) {
       case 1:
         play();
