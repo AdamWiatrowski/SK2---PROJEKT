@@ -111,7 +111,7 @@ int guessWord(string word) {
   while (tries < 5) {
     string guess = getWordFromUser();
     vector<int> result = compareStrings(guess, word);
-    ColorPrint(result, guess);
+    colorPrint(result, guess);
     if (win == result) {
       cout << "Gratulacje, zgadˆe˜ sˆowo w " << tries << " probach!" << endl;
       return tries;
