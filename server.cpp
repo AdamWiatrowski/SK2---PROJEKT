@@ -15,6 +15,8 @@
 using namespace std;
 vector<string> lines;
 string Word = "EMPTY";
+int state = 0; //menu
+
 
 const int PORT = 8080;
 const int BACKLOG = 5;
@@ -88,35 +90,21 @@ void colorPrint(const vector<int> &res, const string &att){
         }
     }
     cout << endl;
+    cout << Word;
     //SetConsoleTextAttribute(h, 15);
 }
-
-void receive_messages(int client_socket)
-{
-    char buffer[BUFSIZE];
-    while (true) {
-        int bytes_received = recv(client_socket, buffer, BUFSIZE, 0);
-        if (bytes_received <= 0) {
-            break;
-        }
-        buffer[bytes_received] = '\0';
-        cout << "Received message: " << buffer << endl;
-        // SPRAWDZA DLA 1. CZY POPRAWNE;
-        vector<int> result = compareStrings(buffer, Word);
-        vector<int> win{1,1,1,1,1};
-        if(result == win){
-        string message = "YOU WON!";
-        int bytes_sent = send(client_socket, message.c_str(), message.length(), 0);
-        Word = roll();
-        cout << Word << endl;
-        }
-        else{
-        string message = "TRY AGAIN";
-        int bytes_sent = send(client_socket, message.c_str(), message.length(), 0);
-        }
-        colorPrint(result, buffer);
+bool guessWord(string guess){
+    vector<int> win{ 1, 1, 1, 1, 1 };
+    vector<int> result = compareStrings(guess, Word);
+    colorPrint(result, guess);
+    if (win == result) {
+        return true;
+    }
+    else{
+    	return false;
     }
 }
+
 
 void send_messages(int client_socket)
 {
@@ -130,11 +118,78 @@ void send_messages(int client_socket)
     }
 }
 
+int printMenu(int client_socket)
+{ 
+    string message = "1. - PLAY\n";
+    send(client_socket, message.c_str(), message.length(), 0);
+    message = "2. - EXIT\n";
+    send(client_socket, message.c_str(), message.length(), 0);
+    char buffer[BUFSIZE];
+    recv(client_socket, buffer, BUFSIZE, 0);
+    
+    return stoi(buffer);
+}
+
+
+int game(int client_socket){
+    Word = roll();
+    cout << "Wylosowane: " << Word << endl;
+    
+    char buffer[BUFSIZE];
+    int tries = 0;
+    while (true) {
+        int bytes_received = recv(client_socket, buffer, BUFSIZE, 0);
+        if (bytes_received <= 0) {
+            break;
+        }
+        buffer[bytes_received] = '\0';
+        cout << "Received message: " << buffer << endl;
+	
+
+        if(guessWord(buffer)){
+
+        string message = "YOU WON!";
+        int bytes_sent = send(client_socket, message.c_str(), message.length(), 0);
+        return 6-tries;
+        }
+        else{
+        	if(tries == 5){
+        	    string message = "YOU LOST";
+        	    int bytes_sent = send(client_socket, message.c_str(), message.length(), 0); 
+        	    return 6-tries; 
+        	}
+        }
+        tries++;
+    }
+    
+    return tries;
+}
+
+
+
+void play(int client_socket){
+	int punkty = 0;
+	for(int i = 0; i < 3; i++){
+        punkty += game(client_socket);
+    	}
+    	//do client prints points;
+    	cout << "Twoje punkty: " << punkty << "." << endl;
+    	//do client state = 1;
+}
+
+void menu(int client_socket){
+    int choice = printMenu(client_socket);
+    switch (choice) {
+      case 1:
+        play(client_socket);
+        break;
+      case 2:
+        exit(1);
+    }
+}
+
 int main(int argc, char* argv[])
 {
-    Word = roll();
-    cout << Word << endl;
-    
     int server_socket = socket(AF_INET, SOCK_STREAM, 0);
     if (server_socket < 0) {
         cerr << "Error creating socket" << endl;
@@ -171,12 +226,14 @@ int main(int argc, char* argv[])
         }
 
         cout << "Accepted client from " << inet_ntoa(client_address.sin_addr) << endl;
-
-        thread receive_thread(receive_messages, client_socket);
-        thread send_thread(send_messages, client_socket);
-
-        receive_thread.join();
-        send_thread.join();
+        
+	while(true){
+	menu(client_socket);
+	}
+	
+	
+        //thread receive_thread(receive_messages, client_socket);
+        //receive_thread.join();
 
         close(client_socket);
     }

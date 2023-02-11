@@ -5,8 +5,52 @@
 #include <arpa/inet.h>
 #include <sys/socket.h>
 
-const int PORT = 8080;
+#include <fstream>
+#include <string>
+#include <vector>
+#include <set>
 
+using namespace std;
+const int PORT = 8080;
+int state = 0;
+vector<string> lines;
+
+void get_lines(){
+  string line;
+
+  ifstream file("slowa.txt");
+
+  while (getline(file, line)) {
+    lines.push_back(line);
+  }
+  file.close();
+}
+
+bool contains(const vector<string> &vec, const string &value) {
+  for (const string &s : vec) {
+    if (s == value) {
+      return true;
+    }
+  }
+  return false;
+}
+
+
+string getWordFromUser() {
+  string word;
+  while (true) {
+    cout << "Podaj 5-literowe slowo: ";
+    cin >> word;
+    for (auto & c: word) c = toupper(c);
+    if (word.length() == 5 && contains(lines, word)) {
+      break;
+    }
+    cout << "Niepoprawne slowo." << endl;
+  }
+  return word;
+}
+
+//a lot to do;
 void receive_messages(int socket)
 {
     while (true) {
@@ -16,16 +60,25 @@ void receive_messages(int socket)
             break;
         }
 
-        std::cout << "Received: " << std::string(buffer, bytes_received) << std::endl;
+        std::cout << std::string(buffer, bytes_received) << std::endl;
     }
 }
+
 
 void send_messages(int socket)
 {
     while (true) {
         std::string message;
-        std::getline(std::cin, message);
-
+        
+	
+	if(state == 1){
+	    message = getWordFromUser();
+	}
+	else{
+	    std::getline(std::cin, message);
+	    state = 1;
+	}
+	
         int bytes_sent = send(socket, message.c_str(), message.size(), 0);
         if (bytes_sent <= 0) {
             break;
@@ -37,6 +90,7 @@ void send_messages(int socket)
 
 int main(int argc, char* argv[])
 {
+    get_lines();	
     int client_socket = socket(AF_INET, SOCK_STREAM, 0);
     if (client_socket < 0) {
         std::cerr << "Error creating socket" << std::endl;
@@ -63,7 +117,9 @@ int main(int argc, char* argv[])
 
     std::thread receive_thread(receive_messages, client_socket);
     std::thread send_thread(send_messages, client_socket);
-
+    
+    get_lines();
+    
     receive_thread.join();
     send_thread.join();
 
