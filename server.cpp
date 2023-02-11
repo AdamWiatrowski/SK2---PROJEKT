@@ -5,6 +5,9 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <signal.h>
+#include <sys/epoll.h>
+#include <fcntl.h>
 
 #include <fstream>
 #include <string>
@@ -18,9 +21,80 @@ string Word = "EMPTY";
 int state = 0; //menu
 
 
-const int PORT = 8080;
+
 const int BACKLOG = 5;
 const int BUFSIZE = 1024;
+const int MAX_CLIENTS = 4;
+const int MAX_EVENTS = 10;
+
+int server_socket;
+struct lobbies;
+
+struct player{
+	int fd;
+	string player_name;
+	int points = 0;
+	int tries = 0;
+	bool host = false;
+	lobbies* lobby = NULL;
+};
+
+
+struct lobbies {
+    string Name;
+	// nazwe
+    string Word;
+	// haslo swoje
+    player* players[MAX_CLIENTS];
+	// musi miec tablice clientow
+    bool in_game = false;
+	// czy w grze
+    int players_count;
+	// ilu graczy
+};
+
+
+void send_message_to_client(player &players, char* message) {
+    int n = send(players.fd, message, strlen(message), 0);
+    if (n < 0) {
+        perror("send");
+        exit(1);
+    }
+}
+
+void send_message_to_room(lobbies &lobby, char *message)
+{
+    for (int i = 0; i < lobby.players_count; i++){
+        player *players = lobby.players[i];
+        send_message_to_client(*players, message);
+    }
+}
+
+void reset_client(player &players) {
+    players.points = 0;
+    players.tries = 0;
+    players.host = false;
+    players.lobby = NULL;
+}
+
+
+void delete_clients(lobbies &lobby){
+    for(int i; i < MAX_CLIENTS; i++){
+        lobby.players[i] = NULL;
+    }
+    lobby.players_count = 0;
+}
+
+void reset_room(lobbies &lobby)
+{
+    lobby.Name = "";
+    lobby.Word = "";
+    memset(lobby.players, 0, sizeof(lobby.players));
+    lobby.in_game = false;
+    delete_clients(lobby);
+}
+
+
 
 string roll(){
 
@@ -58,9 +132,9 @@ vector<int> compareStrings(const string &str1, const string &str2) {
     } else {
       int pos = str2.find(str1[i]);
       if (pos != string::npos && pos != i) {
-        result.push_back(0);
-      } else {
         result.push_back(-1);
+      } else {
+        result.push_back(0);
       }
     }
   }
@@ -68,31 +142,25 @@ vector<int> compareStrings(const string &str1, const string &str2) {
 }
 
 void colorPrint(const vector<int> &res, const string &att){
-    //HANDLE h = GetStdHandle( STD_OUTPUT_HANDLE );
     cout << "> ";
     for (int i = 0; i < 5; i++) {
         if(res[i] == -1){
-            //system("color 04");
-            //SetConsoleTextAttribute(h, 4);
             cout << att[i] << "*-1 ";
         }
         else{
             if(res[i] == 0){
-                //system("color 06");
-                //SetConsoleTextAttribute(h, 14);
                 cout << att[i] << "*0 ";
             }
             else{
-                //system("color 02");
-                //SetConsoleTextAttribute(h, 2);
+
                 cout << att[i] << "*1 ";
             }
         }
     }
     cout << endl;
     cout << Word;
-    //SetConsoleTextAttribute(h, 15);
 }
+
 bool guessWord(string guess){
     vector<int> win{ 1, 1, 1, 1, 1 };
     vector<int> result = compareStrings(guess, Word);
@@ -166,7 +234,6 @@ int game(int client_socket){
 }
 
 
-
 void play(int client_socket){
 	int punkty = 0;
 	for(int i = 0; i < 3; i++){
@@ -188,20 +255,48 @@ void menu(int client_socket){
     }
 }
 
-int main(int argc, char* argv[])
+void ctr_c(int){
+    close(server_socket);
+    cout << endl << "Closing server..." << endl;
+    exit(0);
+}
+
+
+int main(int argc, char ** argv)
 {
-    int server_socket = socket(AF_INET, SOCK_STREAM, 0);
+
+    if(argc != 2){
+        cout << "za malo arg" << endl;
+        return 1;
+    }
+    
+    char * ptr;
+    auto PORT = strtol(argv[1], &ptr, 10);
+    if(*ptr!=0 || PORT<1 || (PORT>((1<<16)-1))){
+        cout << "zly arg" << endl;
+        return 1;
+    }
+
+    signal(SIGINT, ctr_c);
+    signal(SIGTSTP, SIG_IGN);	
+    // do tego momentu git;
+    
+    server_socket = socket(AF_INET, SOCK_STREAM, 0);
     if (server_socket < 0) {
         cerr << "Error creating socket" << endl;
         return 1;
     }
+    
+    // git;
 
     struct sockaddr_in server_address;
     memset(&server_address, 0, sizeof(server_address));
     server_address.sin_family = AF_INET;
     server_address.sin_addr.s_addr = INADDR_ANY;
     server_address.sin_port = htons(PORT);
-
+    
+    // git;
+    
     int bind_result = bind(server_socket, (struct sockaddr*) &server_address, sizeof(server_address));
     if (bind_result < 0) {
         cerr << "Error binding socket" << endl;
@@ -215,28 +310,81 @@ int main(int argc, char* argv[])
     }
 
     cout << "Server is listening on port " << PORT << endl;
-
-    while (true) {
-        struct sockaddr_in client_address;
-        socklen_t client_len = sizeof(client_address);
-        int client_socket = accept(server_socket, (struct sockaddr*) &client_address, &client_len);
-        if (client_socket < 0) {
-            cerr << "Error accepting client" << endl;
-            continue;
-        }
-
-        cout << "Accepted client from " << inet_ntoa(client_address.sin_addr) << endl;
-        
-	while(true){
-	menu(client_socket);
-	}
-	
-	
-        //thread receive_thread(receive_messages, client_socket);
-        //receive_thread.join();
-
-        close(client_socket);
+    
+    // git;
+    int epoll_fd = epoll_create1(0);
+    if (epoll_fd == -1) {
+        std::cerr << "Nie można utworzyć deskryptora epoll." << std::endl;
+        return 1;
     }
+
+    // Rejestrowanie gniazda nasłuchującego w epoll
+    struct epoll_event event;
+    event.data.fd = server_socket;
+    event.events = EPOLLIN;
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, server_socket, &event) == -1) {
+        std::cerr << "Nie można dodać gniazda nasłuchującego do epoll." << std::endl;
+        return 1;
+    }
+	
+	
+	
+	
+	while (true) {
+		struct epoll_event events[MAX_EVENTS];
+		int nfds = epoll_wait(epoll_fd, events, MAX_EVENTS, -1);
+		if (nfds == -1) {
+			std::cerr << "Wystąpił błąd podczas oczekiwania na zdarzenia w epoll." << std::endl;
+			return 1;
+		}
+					for (int i = 0; i < nfds; i++) {
+				if (events[i].data.fd == server_socket) {
+					// Przychodzące połączenie
+					int client_socket = accept(server_socket, NULL, NULL);
+					cout << "AKCEPTACJA" << endl;
+					fcntl(server_socket, F_SETFL, fcntl(server_socket, F_GETFL, 0)| O_NONBLOCK);
+
+           
+					
+					// Dodanie nowego klienta do kontenera epoll
+					event.events = EPOLLIN;
+					event.data.fd = client_socket;
+
+					epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_socket, &event);
+					 
+				} else {
+					// Odebrano dane od klienta
+
+					if (events[i].events & EPOLLIN) {
+						// Odebrano dane od klienta
+						int client_socket = events[i].data.fd;
+  						
+  						// add funckje handle(), ktora w zaleznosci co dostala, podejmuje rozne akcje; i po tym done pracaS
+  						char buffer[BUFSIZE];
+
+  						int bytes_read = read(client_socket, buffer, BUFSIZE);
+  						
+  						if (bytes_read == -1) {
+    						std::cerr << "Wystąpił błąd podczas odbierania danych od klienta." << std::endl;
+    						return 1;
+  						}
+                                                if(bytes_read != 0){
+                                                std::cout << "Odebrano:" << buffer << std::endl;
+                                                }			
+						memset(buffer, 0, sizeof buffer);
+
+					} else if (events[i].events & EPOLLHUP) {
+						// Klient zakończył połączenie
+						cout << "ZAKONCZONO!" << endl;
+					} else if (events[i].events & EPOLLERR) {
+						// Wystąpił błąd w połączeniu z klientem
+						cout << "ERROR CONNECTION" << endl;
+					}					
+				}
+			}
+	
+	}
+
 
     close(server_socket);
     return 0;
