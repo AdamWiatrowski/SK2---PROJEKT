@@ -7,6 +7,8 @@
 
 11.02.2023 - server - without handle;
 
+12.02.2023 - server - no game | added lobbies and name management;
+
 todo:
 
 
