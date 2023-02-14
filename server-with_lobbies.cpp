@@ -38,13 +38,15 @@ struct player
     int tries = 0;
     bool host = false;
     lobbies *lobby = NULL;
+    string word = "";
+    int game = 0;
 };
 
 struct lobbies
 {
     string Name;
     // nazwe
-    string Word;
+    //string Word;
     // haslo swoje
     player *players[MAX_CLIENTS];
     // musi miec tablice clientow
@@ -57,7 +59,6 @@ struct lobbies
 lobbies lobbies_t[MAX_LOBBIES];
 std::unordered_map<int, player> clients;
 // mapa int, player
-int global_players = 0;
 
 void send_message_to_client(player &players, char *message)
 {
@@ -80,8 +81,12 @@ void send_message_to_room(lobbies &lobby, char *message)
 
 void reset_client(player &players)
 {
+    players.word = "";
+	
     players.points = 0;
     players.tries = 0;
+	players.game = 0;
+	
     players.host = false;
     players.lobby = NULL;
 }
@@ -95,14 +100,14 @@ void delete_clients(lobbies &lobby)
     lobby.players_count = 0;
 }
 
-void reset_room(lobbies &lobby)
+/*void reset_room(lobbies &lobby)
 {
     lobby.Name = "";
     lobby.Word = "";
     memset(lobby.players, 0, sizeof(lobby.players));
     lobby.in_game = false;
     delete_clients(lobby);
-}
+}*/
 
 string roll()
 {
@@ -378,6 +383,58 @@ void join_lobby(player &player)
     }
 }
 
+void delete_from_lobby(player &player){
+    lobbies* current_lobby = player.lobby;
+    int index = -1;
+
+    // znajdujemy gracza
+    for (int i = 0; i < current_lobby->players_count; i++)
+    {
+        if (current_lobby->players[i] == &player)
+        {
+            index = i;
+            break;
+        }
+    }
+
+    // po znalezieniu
+    if (index != -1)
+    {
+        // jeśli gracz jest hostem, przekazujemy hostowanie kolejnemu graczowi
+        if (player.host && current_lobby->players_count > 1)
+        {
+            current_lobby->players[(index + 1) % current_lobby->players_count]->host = true;
+        }
+        // zmniejszamy ilosc graczy w lobby
+        current_lobby->players_count--;
+
+        for (int i = index; i < current_lobby->players_count; i++)
+        {
+            current_lobby->players[i] = current_lobby->players[i + 1];
+        }
+		current_lobby->players[current_lobby->players_count] = nullptr;
+
+		
+		
+        if (current_lobby->players_count < 2 && current_lobby->in_game)
+        {
+            current_lobby->in_game = false;
+			//to do:
+			// broadcast to all -> YOU WON;
+			// reset lobby;
+            cout << "KONIEC GRY" << endl;
+        }
+
+        cout << "GRACZ OPUŚCIŁ LOBBY" << endl;
+    }
+}
+
+void client_left_handle(player &players){
+	delete_from_lobby(players);
+	reset_client(players);
+	clients.erase(players.fd);
+}
+
 void start_game_if_host(player &current_player)
 {
     if (current_player.lobby == NULL)
@@ -437,6 +494,14 @@ int handle_client(player &players)
         else if (string(buffer, 6) == "xSTART")
         {
             start_game_if_host(players);
+            return 0;
+        }
+        else if (string(buffer, 5) == "xQUIT")
+        {
+            return 1;
+        }
+        else if(string(buffer, 1) == "2")
+        {
             return 0;
         }
         else
@@ -548,7 +613,6 @@ int main(int argc, char **argv)
                 player new_player;
                 new_player.fd = client_socket;
                 clients[client_socket] = new_player;
-                global_players++;
             }
             else
             {
@@ -566,9 +630,10 @@ int main(int argc, char **argv)
                     }
                     if (status == 1)
                     {
-                        std::cerr << "Klient "<<players.player_name<< " odlaczyl sie" << std::endl;
+                        //players.host = false;
                         epoll_ctl(epoll_fd, EPOLL_CTL_DEL, players.fd, &events[i]);
-                        clients.erase(players.fd);
+                        client_left_handle(players);
+                        std::cerr << "Klient "<<players.player_name<< " odłączył się" << std::endl;
                     }
                 }
                 else if (events[i].events & EPOLLHUP)

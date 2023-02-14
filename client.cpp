@@ -17,6 +17,7 @@ int state = 0;
 vector<string> lines;
 string last_message = "";
 int client_socket;
+const int BUFSIZE = 1024;
 
 void get_lines()
 {
@@ -63,10 +64,16 @@ string getWordFromUser()
 
 void ctr_c(int)
 {
-    close(client_socket);
-    cout << endl
-         << "Closing client..." << endl;
-    exit(0);
+  string message = "xQUIT";
+  int bytes_sent = send(client_socket, message.c_str(), message.size(), 0);
+  if (bytes_sent <= 0)
+  {
+    std::cout << "Could not send a message - quit" << std::endl;
+  }
+  close(client_socket);
+  cout << endl
+        << "Closing client..." << endl;
+  exit(0);
 }
 
 // a lot to do;
@@ -90,6 +97,55 @@ void receive_messages(int socket)
     }
   }
 }
+
+/*int printMenu()
+{
+    //int odp = -1;
+    cout << "1. - PLAY" << endl;
+    cout << "2. - EXIT" << endl;
+    /*cin >> odp;
+    cout << odp;
+    if (odp != 1 || odp != 2){
+      cout << "Niepoprawna opcja" << endl;
+      odp = printMenu();
+    }
+    return odp;
+
+    char buffer[BUFSIZE];
+     cin>>buffer;
+     try{
+      return stoi(buffer);
+     }
+     catch(...){
+      cout<<"ZLY INPUT"<<endl;
+      return printMenu();
+     }
+}
+
+void menu()
+  {
+    int choice = printMenu();
+    switch (choice)
+    {
+    case 1:
+      cout << "elo";
+      break;
+    case 2:
+      string message = "xQUIT";
+      int bytes_sent = send(client_socket, message.c_str(), message.size(), 0);
+      if (bytes_sent <= 0)
+      {
+        std::cout << "Could not send a message - quit" << std::endl;
+      }
+      close(client_socket);
+      cout << endl
+            << "Closing client..." << endl;
+      exit(0);
+    }
+  }
+  */
+
+
 
 void send_messages(int socket)
 {
@@ -121,6 +177,7 @@ void send_messages(int socket)
       last_message = "";
     }
 
+    
 
     if(state == 2 && last_message == "x002"){
       message = "xLOBBY";
