@@ -98,60 +98,11 @@ void receive_messages(int socket)
   }
 }
 
-/*int printMenu()
-{
-    //int odp = -1;
-    cout << "1. - PLAY" << endl;
-    cout << "2. - EXIT" << endl;
-    /*cin >> odp;
-    cout << odp;
-    if (odp != 1 || odp != 2){
-      cout << "Niepoprawna opcja" << endl;
-      odp = printMenu();
-    }
-    return odp;
-
-    char buffer[BUFSIZE];
-     cin>>buffer;
-     try{
-      return stoi(buffer);
-     }
-     catch(...){
-      cout<<"ZLY INPUT"<<endl;
-      return printMenu();
-     }
-}
-
-void menu()
-  {
-    int choice = printMenu();
-    switch (choice)
-    {
-    case 1:
-      cout << "elo";
-      break;
-    case 2:
-      string message = "xQUIT";
-      int bytes_sent = send(client_socket, message.c_str(), message.size(), 0);
-      if (bytes_sent <= 0)
-      {
-        std::cout << "Could not send a message - quit" << std::endl;
-      }
-      close(client_socket);
-      cout << endl
-            << "Closing client..." << endl;
-      exit(0);
-    }
-  }
-  */
-
-
-
 void send_messages(int socket)
 {
   while (true)
   {
-    std::string message;
+    std::string message = "";
     int bytes_sent;
 
     if(state == 0){
@@ -161,7 +112,7 @@ void send_messages(int socket)
 
     if (state == 1){
       string sendImie = "xIMIE ";
-      cin >> message;
+      std::cin >> message; //tu sie czasem psuje
       sendImie.append(message);
       bytes_sent = send(socket, sendImie.c_str(), sendImie.size(), 0);
       if (bytes_sent <= 0)
@@ -177,21 +128,53 @@ void send_messages(int socket)
       last_message = "";
     }
 
-    
+    if(last_message == "x002")
+    {
+      int choice = 0;
+      std::cout << "1. Połącz się z lobby" << std::endl;
+      std::cout << "2. Wyjdź" << std::endl;
+      std::cin >> choice;
+      switch (choice)
+      {
+        case 1:
+          state++;
+          break;
+        case 2:
+          exit(1);
+          break;
+        default:
+          continue;
+      }
+    }
 
-    if(state == 2 && last_message == "x002"){
+    if(state == 3 && last_message == "x002"){
       message = "xLOBBY";
       bytes_sent = send(socket, message.c_str(), message.size(), 0);
-      std::cout << "Connecting to lobby..." << std::endl;
       if (bytes_sent <= 0)
       {
         break;
       }
-
+      std::cout << "Connecting to lobby..." << std::endl;
       state++;
     }
 
-    /*if(state == 3){
+    /*if(state == 4){
+      int choice = 0;
+      std::cout << "Połączono z lobby się z lobby" << std::endl;
+      std::cout << "1. Połącz się z lobby" << std::endl;
+      std::cout << "2. Wyjdź" << std::endl;
+      std::cin >> choice;
+      switch (choice)
+      {
+        case 1:
+          state++;
+          break;
+        case 2:
+          exit(1);
+          break;
+        default:
+          continue;
+      }
       message = "xSTART";
       bytes_sent = send(socket, message.c_str(), message.size(), 0);
       std::cout << "Starting the game..." << std::endl;
@@ -203,7 +186,7 @@ void send_messages(int socket)
       state++;
     }*/
 
-    if (state == 4)
+    if (state == 5)
     {
       message = getWordFromUser();
       bytes_sent = send(socket, message.c_str(), message.size(), 0);
@@ -214,7 +197,7 @@ void send_messages(int socket)
       std::cout << "Sent: " << message << std::endl;
     }
 
-    else if (state == 3)
+    else if (state == 4)
     {
       std::getline(std::cin, message);
       bytes_sent = send(socket, message.c_str(), message.size(), 0);
@@ -223,7 +206,7 @@ void send_messages(int socket)
         break;
       }
       std::cout << "Sent: " << message << std::endl;
-      state = 4;
+      state = 5;
     }
   }
 }
@@ -250,6 +233,7 @@ int main(int argc, char **argv)
 
   signal(SIGINT, ctr_c);
   signal(SIGTSTP, ctr_c);
+  signal(SIGTERM, ctr_c);
 
   get_lines();
   client_socket = socket(AF_INET, SOCK_STREAM, 0);

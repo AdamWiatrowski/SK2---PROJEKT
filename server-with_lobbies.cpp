@@ -430,7 +430,9 @@ void delete_from_lobby(player &player){
 }
 
 void client_left_handle(player &players){
-	delete_from_lobby(players);
+    if(players.lobby != NULL){
+	    delete_from_lobby(players);
+    }
 	reset_client(players);
 	clients.erase(players.fd);
 }
@@ -500,10 +502,6 @@ int handle_client(player &players)
         {
             return 1;
         }
-        else if(string(buffer, 1) == "2")
-        {
-            return 0;
-        }
         else
         {
             return 1;
@@ -532,6 +530,7 @@ int main(int argc, char **argv)
 
     signal(SIGINT, ctr_c);
     signal(SIGTSTP, ctr_c);
+    signal(SIGTERM, ctr_c);
     // do tego momentu git;
 
     server_socket = socket(AF_INET, SOCK_STREAM, 0);
