@@ -564,6 +564,12 @@ int main(int argc, char **argv)
                         cerr << "Error handling the client" << endl;
                         return 1;
                     }
+                    if (status == 1)
+                    {
+                        std::cerr << "Klient "<<players.player_name<< " odlaczyl sie" << std::endl;
+                        epoll_ctl(epoll_fd, EPOLL_CTL_DEL, players.fd, &events[i]);
+                        clients.erase(players.fd);
+                    }
                 }
                 else if (events[i].events & EPOLLHUP)
                 {

@@ -133,7 +133,19 @@ void send_messages(int socket)
 
       state++;
     }
-    
+
+    /*if(state == 3){
+      message = "xSTART";
+      bytes_sent = send(socket, message.c_str(), message.size(), 0);
+      std::cout << "Starting the game..." << std::endl;
+      if (bytes_sent <= 0)
+      {
+        break;
+      }
+
+      state++;
+    }*/
+
     if (state == 4)
     {
       message = getWordFromUser();
