@@ -118,14 +118,16 @@ void reset_room(lobbies &lobby)
     lobby.winner = "";
 }
 
+/*
 void final_end(player &players)
 {
-    for (int i = 0; i < players.lobby->players_count; i++)
+    for (int i = 0; i < MAX_CLIENTS; i++)
     {
         reset_client(*(players.lobby->players[i]));
     }
     reset_room(*(players.lobby));
 }
+*/
 
 string roll()
 {
@@ -295,7 +297,8 @@ void check_slowo(player &players, char *buffer, int bytes_read)
 
                 send_message_to_room(*(players.lobby), endofgameString);
                 //cout << "End of the game" << endl;
-                final_end(players);
+                reset_room(*(players.lobby));
+                reset_client(players);
             }
         }
     }
@@ -323,7 +326,6 @@ void check_slowo(player &players, char *buffer, int bytes_read)
                 }
                 // KONIEC GRY
                 players.finished = true;
-
                 cout << "KONCOWE PUNKTY: " << players.points << endl;
                 if (playing(*(players.lobby)))
                 {
@@ -336,7 +338,8 @@ void check_slowo(player &players, char *buffer, int bytes_read)
                     endofgameString = "End of the game. ";
                     endofgameString += players.lobby->winner+" has won with "+to_string(players.lobby->max)+" points.";
                     send_message_to_room(*(players.lobby), endofgameString);
-                    final_end(players);
+                    reset_room(*(players.lobby));
+                    reset_client(players);
                 }
             }
         }
@@ -454,7 +457,8 @@ void delete_from_lobby(player &player)
             current_lobby->in_game = false;
 
             send_message_to_room(*(player.lobby), "YOU WON");
-            final_end(player);
+            reset_room(*(player.lobby));
+            reset_client(player);
             //cout << "KONIEC GRY" << endl;
         }
 
