@@ -594,6 +594,13 @@ int main(int argc, char **argv)
         cerr << "Error creating socket" << endl;
         return 1;
     }
+    
+    
+    
+    // new
+    const int enable = 1;
+    if (setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0)
+        error("setsockopt(SO_REUSEADDR) failed");
 
     // git;
 
